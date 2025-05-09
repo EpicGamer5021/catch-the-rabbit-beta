@@ -9,49 +9,119 @@ def open_settings():
     start_button.place_forget()
     exit_button.place_forget()
     settings_button.place_forget()
-    window.update()  # Add this line
+    window.update()
 
-    # Create settings widgets
+    # --- Settings State ---
+    global timer_enabled, rabbit_speed, difficulty, time_left
+
+    # Defaults for settings
+    if 'rabbit_speed' not in globals():
+        globals()['rabbit_speed'] = 2500  # ms
+    if 'difficulty' not in globals():
+        globals()['difficulty'] = "custom"
+
+    # Tkinter variables
     timer_var = tk.BooleanVar(value=timer_enabled)
+    speed_var = tk.IntVar(value=rabbit_speed)
+    difficulty_var = tk.StringVar(value=difficulty)
 
-    def toggle_timer():
-        global timer_enabled
-        timer_enabled = timer_var.get()
+    # --- Difficulty Presets ---
+    def apply_difficulty(diff):
+        if diff == "custom":
+            timer_check.config(state="normal")
+            speed_slider.config(state="normal")
+        elif diff == "easy":
+            timer_var.set(True)
+            speed_var.set(999999)
+            timer_check.config(state="disabled")
+            speed_slider.config(state="disabled")
+        elif diff == "normal":
+            timer_var.set(True)
+            speed_var.set(2500)
+            timer_check.config(state="disabled")
+            speed_slider.config(state="disabled")
+        elif diff == "hard":
+            timer_var.set(True)
+            speed_var.set(1200)
+            timer_check.config(state="disabled")
+            speed_slider.config(state="disabled")
+        elif diff == "super hard":
+            timer_var.set(True)
+            speed_var.set(900)
+            timer_check.config(state="disabled")
+            speed_slider.config(state="disabled")
         update_timer_display()
 
-    timer_check = tk.Checkbutton(window, text="Enable Timer", variable=timer_var, command=toggle_timer)
-    timer_check.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
+    def on_difficulty_change(*args):
+        diff = difficulty_var.get()
+        apply_difficulty(diff)
 
-    back_button = tk.Button(window, text="Back to Menu", font=("Arial", 16), command=show_start_menu)
-    back_button.place(relx=0.5, rely=0.7, anchor=tk.CENTER)
-
+    # --- Timer Toggle ---
     def update_timer_display():
         global timer_label, timer_enabled, time_left
-        if not timer_enabled:
-            timer_label.config(text="∞", fg="red", font=("Arial", 24))
-        else:
-            timer_label.config(text=f"Time: {time_left}", fg="black", font=("Arial", 16))
-
-    update_timer_display()
-
-    def toggle_timer():
-        global timer_enabled
         timer_enabled = timer_var.get()
-        update_timer_display()
+        if timer_label and timer_label.winfo_exists():
+            if not timer_enabled:
+                timer_label.config(text="∞", fg="red", font=("Arial", 24))
+            else:
+                timer_label.config(text=f"Time: {time_left}", fg="black", font=("Arial", 16))
 
-    timer_check = tk.Checkbutton(window, text="Enable Timer", variable=timer_var, command=toggle_timer)
-    timer_check.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
+    timer_check = tk.Checkbutton(window, text="Enable Timer", variable=timer_var, command=update_timer_display)
+    timer_check.place(relx=0.5, rely=0.25, anchor=tk.CENTER)
 
-    back_button = tk.Button(window, text="Back to Menu", font=("Arial", 16), command=show_start_menu)
-    back_button.place(relx=0.5, rely=0.7, anchor=tk.CENTER)
+    # --- Rabbit Speed Slider ---
+    speed_label = tk.Label(window, text="Rabbit Speed (ms, lower is faster):")
+    speed_label.place(relx=0.5, rely=0.37, anchor=tk.CENTER)
+    speed_slider = tk.Scale(window, from_=300, to=4000, orient=tk.HORIZONTAL, variable=speed_var, resolution=100, length=200)
+    speed_slider.place(relx=0.5, rely=0.45, anchor=tk.CENTER)
 
-    def update_timer_display():
-        global timer_label, timer_enabled, time_left
-        if not timer_enabled:
-            timer_label.config(text="∞", fg="red", font=("Arial", 24))
+    # --- Difficulty Dropdown ---
+    diff_label = tk.Label(window, text="Difficulty:")
+    diff_label.place(relx=0.5, rely=0.57, anchor=tk.CENTER)
+    difficulty_options = ["custom", "easy", "normal", "hard", "super hard"]
+    difficulty_menu = tk.OptionMenu(window, difficulty_var, *difficulty_options, command=lambda _: on_difficulty_change())
+    difficulty_menu.place(relx=0.5, rely=0.63, anchor=tk.CENTER)
+
+    # --- Back Button ---
+    def back_to_menu():
+        global timer_enabled, rabbit_speed, difficulty, time_left, rabbit_auto_move, timer_tick, regain_time
+        timer_enabled = timer_var.get()
+        rabbit_speed = speed_var.get()
+        difficulty = difficulty_var.get()
+        if difficulty == "easy":
+            rabbit_auto_move = False
+            timer_tick = 1.0
+            regain_time = True
+            time_left = 30
+        elif difficulty == "hard":
+            rabbit_auto_move = True
+            timer_tick = 0.7
+            regain_time = True
+            time_left = 30
+        elif difficulty == "super hard":
+            rabbit_auto_move = True
+            timer_tick = 0.5
+            regain_time = False
+            time_left = 40
+        elif difficulty == "normal":
+            rabbit_auto_move = True
+            timer_tick = 1.0
+            regain_time = True
+            time_left = 30
         else:
-            timer_label.config(text=f"Time: {time_left}", fg="black", font=("Arial", 16))
+            pass
+        timer_check.place_forget()
+        speed_slider.place_forget()
+        difficulty_menu.place_forget()
+        speed_label.place_forget()
+        diff_label.place_forget()
+        back_button.place_forget()
+        show_start_menu()
 
+    back_button = tk.Button(window, text="Back to Menu", font=("Arial", 16), command=back_to_menu)
+    back_button.place(relx=0.5, rely=0.85, anchor=tk.CENTER)
+
+    apply_difficulty(difficulty_var.get())
     update_timer_display()
 
 # --- Game State Variables ---
@@ -59,7 +129,12 @@ score = 0
 time_left = 30
 game_active = False
 game_paused = False
-timer_enabled = True  # Timer is on by default
+timer_enabled = True
+rabbit_speed = 2500
+difficulty = "custom"
+rabbit_auto_move = True
+timer_tick = 1.0
+regain_time = True
 
 # --- Animation Constants ---
 HOVER_COLOR = "lightgray"
@@ -92,6 +167,7 @@ quit_button = None
 def move_rabbit():
     global rabbit_button, game_active, game_paused
     if game_active and not game_paused:
+        window.update_idletasks()
         window_width = window.winfo_width()
         window_height = window.winfo_height()
         button_width = rabbit_button.winfo_width()
@@ -105,41 +181,39 @@ def move_rabbit():
         rabbit_button.place(x=new_x, y=new_y)
 
 def catch_rabbit():
-    global score, score_label, time_left, game_active, game_paused
+    global score, score_label, time_left, game_active, game_paused, regain_time, timer_enabled
     if game_active and not game_paused:
         score += 1
         score_label.config(text=f"Score: {score}")
-        time_left += 5
-        timer_label.config(text=f"Time: {time_left}")
+        if timer_enabled and regain_time:
+            time_left += 5
+            timer_label.config(text=f"Time: {time_left}")
         move_rabbit()
 
 def update_timer():
-    global time_left, timer_label, game_active, game_paused, rabbit_button, timer_enabled
+    global time_left, timer_label, game_active, game_paused, rabbit_button, timer_enabled, timer_tick
     if game_active and not game_paused and timer_enabled:
         if time_left > 0:
-            timer_label.config(text=f"Time: {time_left}") # Only update text here if enabled
+            timer_label.config(text=f"Time: {time_left}")
             time_left -= 1
-            window.after(1000, update_timer)
+            window.after(int(1000 * timer_tick), update_timer)
         elif time_left == 0:
             game_active = False
             if rabbit_button.winfo_ismapped():
-                rabbit_button.pack_forget()
+                rabbit_button.place_forget()
             timer_label.config(text="Time's Up!")
             start_menu_transition()
-    # If timer is disabled, update_timer_display handles the label, and we do nothing here
 
 def start_rabbit_movement():
-    global game_active, game_paused
-    if game_active and not game_paused:
-        window.after(2500, move_rabbit_repeatedly)
-    elif not game_active or game_paused:
-        pass
+    global game_active, game_paused, rabbit_auto_move, rabbit_speed
+    if game_active and not game_paused and rabbit_auto_move:
+        window.after(rabbit_speed, move_rabbit_repeatedly)
 
 def move_rabbit_repeatedly():
-    global game_active, game_paused
-    if game_active and not game_paused:
+    global game_active, game_paused, rabbit_auto_move, rabbit_speed
+    if game_active and not game_paused and rabbit_auto_move:
         move_rabbit()
-        window.after(2500, move_rabbit_repeatedly)
+        window.after(rabbit_speed, move_rabbit_repeatedly)
 
 def pause_game():
     global game_paused, pause_button, game_active
@@ -169,7 +243,7 @@ def exit_game():
     window.destroy()
 
 def start_game():
-    global game_active, score, time_left, rabbit_button, spinner_label, animating
+    global game_active, score, time_left, rabbit_button, spinner_label, animating, difficulty, timer_tick, regain_time, rabbit_auto_move, rabbit_speed, timer_enabled
     if animating:
         return
     animating = True
@@ -177,7 +251,36 @@ def start_game():
         spinner_label.place_forget()
         stop_spinner()
     score = 0
-    time_left = 30
+    if difficulty == "super hard":
+        time_left = 40
+        timer_tick = 0.5
+        regain_time = False
+        rabbit_auto_move = True
+        rabbit_speed = 900
+        timer_enabled = True
+    elif difficulty == "hard":
+        time_left = 30
+        timer_tick = 0.7
+        regain_time = True
+        rabbit_auto_move = True
+        rabbit_speed = 1200
+        timer_enabled = True
+    elif difficulty == "normal":
+        time_left = 30
+        timer_tick = 1.0
+        regain_time = True
+        rabbit_auto_move = True
+        rabbit_speed = 2500
+        timer_enabled = True
+    elif difficulty == "easy":
+        time_left = 30
+        timer_tick = 1.0
+        regain_time = True
+        rabbit_auto_move = False
+        rabbit_speed = 999999
+        timer_enabled = True
+    else:
+        pass
     game_active = True
     slide_out_menu()
     slide_in_game()
@@ -189,20 +292,24 @@ def show_start_menu():
     if spinner_label and spinner_label.winfo_ismapped():
         spinner_label.place_forget()
         stop_spinner()
-    game_title_label.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
-    start_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-    exit_button.place(relx=0.5, rely=0.7, anchor=tk.CENTER)
-    settings_button.place(relx=0.5, rely=0.9, anchor=tk.CENTER)
+    # Hide all game elements BEFORE placing menu buttons
     if rabbit_button and rabbit_button.winfo_ismapped():
         rabbit_button.place_forget()
     if score_label and score_label.winfo_ismapped():
+        score_label.pack_forget()
         score_label.place_forget()
     if timer_label and timer_label.winfo_ismapped():
+        timer_label.pack_forget()
         timer_label.place_forget()
     if pause_button and pause_button.winfo_ismapped():
         pause_button.place_forget()
     if quit_button and quit_button.winfo_ismapped():
         quit_button.place_forget()
+    # Now place menu buttons
+    game_title_label.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
+    start_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+    exit_button.place(relx=0.5, rely=0.7, anchor=tk.CENTER)
+    settings_button.place(relx=0.5, rely=0.9, anchor=tk.CENTER)
 
 def show_game_elements():
     global score_label, timer_label, rabbit_button, pause_button, quit_button, animating, spinner_label
@@ -327,10 +434,6 @@ def slide_in_menu(step=0):
         settings_button.place(relx=0.5, rely=0.9, anchor=tk.CENTER)
         animating = False
 
-def open_settings():
-    print("Opening settings...")
-    # We'll add the settings screen UI here later
-
 # --- Button Animation Functions ---
 def on_enter(event):
     event.widget.config(bg=HOVER_COLOR)
@@ -353,7 +456,7 @@ window.geometry("400x350")
 game_title_label = tk.Label(window, text="Catch the Rabbit!", font=("Arial", 24))
 start_button = tk.Button(window, text="Start Game", font=("Arial", 16), command=show_loading_screen)
 exit_button = tk.Button(window, text="Exit Game", font=("Arial", 16), command=exit_game)
-settings_button = tk.Button(window, text="Settings", font=("Arial", 16), command=open_settings) # New button
+settings_button = tk.Button(window, text="Settings", font=("Arial", 16), command=open_settings)
 
 # --- Game Elements (Initially Hidden) ---
 score_label = tk.Label(window, text=f"Score: {score}", font=("Arial", 16))
@@ -372,10 +475,9 @@ for button in [start_button, exit_button, rabbit_button, pause_button, quit_butt
     button.bind("<ButtonRelease-1>", on_release)
 
 # --- Place initial Start Menu Elements ---
-settings_button = tk.Button(window, text="Settings", font=("Arial", 16), command=open_settings) # New button
 start_button.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 exit_button.place(relx=0.5, rely=0.7, anchor=tk.CENTER)
-settings_button.place(relx=0.5, rely=0.9, anchor=tk.CENTER) # Place the settings button
+settings_button.place(relx=0.5, rely=0.9, anchor=tk.CENTER)
 
 # --- Initial Loading Screen Display ---
 show_loading_screen()
